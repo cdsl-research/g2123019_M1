@@ -1,70 +1,51 @@
-import subprocess
-import time
+#!/bin/bash
 
 # rsyncのコマンドとパラメーター
-source_dir = "{testdir}"
-destination_dir = "{path}"
-rsync_command = ["rsync", "-avP", source_dir, destination_dir]
+source_dir="[directory]"
+destination_dir="[user]@[address]"
+rsync_command=("rsync" "-avhP" "$source_dir" "$destination_dir")
 
-# 現在の時刻を取得
-start_time = time.time()
+# バックアップ期限までの秒数を入力
+echo "バックアップ期限までの秒数を入力"
+read backuplimit
 
-# rsyncコマンドのプロセスを開始
-rsync_process = subprocess.Popen(rsync_command)
+# 繰り返し間隔（秒）
+interval=20
 
-# n秒間の待機時間
-wait_time = 20
+# 無限ループで処理を続ける
+while true; do
+    # 現在の時刻を取得
+    loop_start_time=$(date +%s)
 
-# 中断フラグ
-interrupted = False
+    # rsyncコマンドの実行
+    "${rsync_command[@]}" &
 
-# n秒間の待機時間を経過するか、rsyncコマンドが終了するまでループ
-while True:
-    # rsyncコマンドの状態を確認
-    returncode = rsync_process.poll()
-    if returncode is not None:
-        # rsyncコマンドが終了した場合、ループを抜ける
-        break
+    # rsyncコマンドのプロセスIDを取得
+    rsync_pid=$!
 
-    # 経過時間を計算
-    elapsed_time = time.time() - start_time
+    # 指定した間隔待つ
+    sleep $interval
 
-    # n秒経過した場合、rsyncコマンドを中断
-    if elapsed_time >= wait_time:
-        rsync_process.terminate()
-        print("ファイル転送を中断しました（経過時間: {:.2f}秒）".format(elapsed_time))
-        interrupted = True
-        break
+    # rsyncコマンドを中断
+    kill -TERM $rsync_pid
+    echo "ファイル転送を中断しました"
 
-    # 0.1秒待機してループを続ける
-    time.sleep(0.1)
+    # rsyncコマンドが中断されるのを待つ
+    wait $rsync_pid
 
-# 中断後に再開する場合
-if interrupted:
-    print("ファイル転送を再開します...")
-    # 中断時のコマンドとパラメーターを修正
-    rsync_command[2] = source_dir
-    rsync_process = subprocess.Popen(rsync_command)
+    # rsyncコマンドが終了した後に残り時間とファイルサイズを表示
+    loop_end_time=$(date +%s)
+    rsync_elapsed_time=$((loop_end_time - loop_start_time))
+    transfer_size=$(python3 filesize.py) # filesize.pyを実行して転送済みファイルサイズを取得
 
-    # 再開後の経過時間を計算
-    resume_start_time = time.time()
-    resume_elapsed_time = resume_start_time - start_time
+    limit=$(($backuplimit - $rsync_elapsed_time))
+    leftsize=$(echo "$totalsize - $transfer_size" | bc)
 
-    # 中断前の待機時間を考慮して、再開後に残りの待機時間を計算
-    remaining_wait_time = wait_time - resume_elapsed_time
+    echo "転送が開始してから $rsync_elapsed_time 秒経過しました。"
+    echo "バックアップ期限まであと $limit 秒"
+    echo "残りファイルサイズ: $leftsize MB"
 
-    # 残りの待機時間を経過するか、rsyncコマンドが終了するまでループ
-    while True:
-        # rsyncコマンドの状態を確認
-        returncode = rsync_process.poll()
-        if returncode is not None:
-            # rsyncコマンドが終了した場合、ループを抜ける
-            break
-
-        # 経過時間を計算
-        elapsed_time = time.time() - resume_start_time
-
-        # 残りの待機時間を経過した場合、rsyncコマンドを中断
-        if elapsed_time >= remaining_wait_time:
-            rsync_process.terminate()
-            print("ファイル転送を中断しました（経過時間: {:.2f}秒）".format(elapsed_time))
+    # 次のループの前に残りの時間待機
+    remaining_time=$((interval - rsync_elapsed_time))
+    sleep $remaining_time
+done
