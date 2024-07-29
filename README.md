@@ -16,7 +16,9 @@ Ubnutu上で動作する.sh及び.pyファイル．
 ![image](https://github.com/user-attachments/assets/48d3c9fb-1c80-4319-bf3b-ee96b921c074)
 
 interval=
-の部分で設定した秒数ごとにファイル転送を中断し，バックアップの制限速度を変更する．下記の例は20秒ごとで設定した場合の実行結果
+の部分で設定した秒数ごとにファイル転送を中断し，バックアップの制限速度を変更する．下記の例は20秒ごとで設定した場合の実行結果である．
+
+
 ![image](https://github.com/user-attachments/assets/604367c1-35d1-47e7-ab8e-351b06dea6e9)
 
 ## filesize.py
